@@ -17,7 +17,7 @@ function decodeTxnInputData(ABI, Input) {
     return result;
 }
 
-function sendAccountTransferTxnInfo(req, res, txnInfo, txnReceipt){
+function sendAccountTransferTxnInfo(req, res, txnInfo, txnReceipt) {
     var txninfo = {
         "block": {
             "blockHeight": txnInfo.blockNumber,
@@ -37,6 +37,40 @@ function sendAccountTransferTxnInfo(req, res, txnInfo, txnReceipt){
         "state": txnReceipt ? "Confirmed" : "Pending",
         "depositType": "account"
     };
+    res.send(txninfo);
+    res.end();
+}
+
+function sendERC20TransferTxnInfo(req, res, txnInfo, txnReceipt, inputData, quantity) {
+    var txninfo = {
+        "block": {
+            "blockHeight": txnInfo.blockNumber,
+        },
+
+        "outs": [{
+            "address": "0x" + inputData.inputs[0], //Receiver of the ERC20 token
+            "value": quantity, //Quantity of ERC20 token
+            "type": "token",
+            "coinspecific": {
+                "tokenAddress": txnInfo.to
+            }
+
+        }],
+        "ins": [{
+            "address": txnInfo.from,
+            "value": "-" + quantity,
+            "type": "token",
+            "coinspecific": {
+                "tokenAddress": txnInfo.to
+            }
+        }],
+        "hash": req.params.TXID,
+        "currency": "ETH",
+        "chain": "ETH." + networkName,
+        "state": txnReceipt ? "Confirmed" : "Pending",
+        "depositType": "contract"
+    };
+
     res.send(txninfo);
     res.end();
 }
@@ -90,44 +124,15 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                                                     if (result.name == "transfer" && result.inputs) {
                                                         var value = ("" + result.inputs[1]);
 
-                                                        var txninfo = {
-                                                            "block": {
-                                                                "blockHeight": info.blockNumber,
-                                                            },
+                                                        sendERC20TransferTxnInfo(req, res, info, receipt, result, value);
 
-                                                            "outs": [{
-                                                                "address": "0x" + result.inputs[0], //Receiver of the ERC20 token
-                                                                "value": value, //Quantity of ERC20 token
-                                                                "type": "token",
-                                                                "coinspecific": {
-                                                                    "tokenAddress": info.to
-                                                                }
-
-                                                            }],
-                                                            "ins": [{
-                                                                "address": info.from,
-                                                                "value": "-"+value,
-                                                                "type": "token",
-                                                                "coinspecific": {
-                                                                    "tokenAddress": info.to
-                                                                }
-                                                            }],
-                                                            "hash": req.params.TXID,
-                                                            "currency": "ETH",
-                                                            "chain": "ETH." + networkName,
-                                                            "state": receipt ? "Confirmed" : "Pending",
-                                                            "depositType": "contract"
-                                                        };
-
-                                                        res.send(txninfo);
-                                                        res.end();
                                                     } else {
                                                         //For smart contract invocation
                                                         var txninfo = {
                                                             "block": {
                                                                 "blockHeight": info.blockNumber,
                                                             },
-        
+
                                                             "outs": [{
                                                                 "address": info.to,
                                                                 "value": value,
@@ -135,11 +140,11 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                                                                 "coinspecific": {
                                                                     "tracehash": req.params.TXID
                                                                 }
-        
+
                                                             }],
                                                             "ins": [{
                                                                 "address": info.to,
-                                                                "value": value ? "-"+value : undefined,
+                                                                "value": value ? "-" + value : undefined,
                                                                 "type": "transfer",
                                                                 "coinspecific": {
                                                                     "tracehash": req.params.TXID
@@ -172,7 +177,7 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                                                     }],
                                                     "ins": [{
                                                         "address": info.to,
-                                                        "value": value ? "-"+value : undefined,
+                                                        "value": value ? "-" + value : undefined,
                                                         "type": "transfer",
                                                         "coinspecific": {
                                                             "tracehash": req.params.TXID
