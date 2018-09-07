@@ -17,6 +17,30 @@ function decodeTxnInputData(ABI, Input) {
     return result;
 }
 
+function sendAccountTransferTxnInfo(req, res, txnInfo, txnReceipt){
+    var txninfo = {
+        "block": {
+            "blockHeight": txnInfo.blockNumber,
+        },
+
+        "outs": [{
+            "address": txnInfo.to,
+            "value": txnInfo.value
+        }],
+        "ins": [{
+            "address": txnInfo.from,
+            "value": txnInfo.value * -1
+        }],
+        "hash": req.params.TXID,
+        "currency": "ETH",
+        "chain": "ETH." + networkName,
+        "state": txnReceipt ? "Confirmed" : "Pending",
+        "depositType": "account"
+    };
+    res.send(txninfo);
+    res.end();
+}
+
 //Get ethereum network type
 web3.eth.net.getNetworkType()
     .then(function (name) {
@@ -172,25 +196,7 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                             } else {
                                 //Account to account ETH transfers
 
-                                var txninfo = {
-                                    "block": {
-                                        "blockHeight": info.blockNumber,
-                                    },
-
-                                    "outs": [{
-                                        "address": info.to,
-                                        "value": info.value
-                                    }],
-                                    "ins": [{
-                                        "address": info.from,
-                                        "value": info.value * -1
-                                    }],
-                                    "hash": req.params.TXID,
-                                    "currency": "ETH",
-                                    "chain": "ETH." + networkName,
-                                    "state": receipt ? "Confirmed" : "Pending",
-                                    "depositType": "account"
-                                };
+                                sendAccountTransferTxnInfo(req, res, info, receipt);
 
                                 res.send(txninfo);
                                 res.end();
@@ -208,7 +214,7 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
         });
 })
 
-var server = app.listen(process.env.PORT ? process.env.PORT : 8000, function () {
+var server = app.listen(process.env.PORT || 8000, function () {
 
     var host = server.address().address
     var port = server.address().port
