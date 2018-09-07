@@ -1,63 +1,152 @@
-var express = require('express');
+var express = require("express");
 var app = express();
-var fs = require("fs");
 var Web3 = require("web3");
-var request = require('request');
-const InputDataDecoder = require('ethereum-input-data-decoder');
+var request = require("request");
+const InputDataDecoder = require("ethereum-input-data-decoder");
 
 var provider = 'https://mainnet.infura.io/v3/4a70b2f6e9f547f7ac9f086d489c2c95'; //Your Infura Endpoint
 var web3Provider = new Web3.providers.HttpProvider(provider);
 var web3 = new Web3(web3Provider);
 
 var networkName = "";
+
+//Decodes the transaction input data
+function decodeTxnInputData(ABI, Input) {
+    const decoder = new InputDataDecoder(JSON.parse(ABI));
+    const result = decoder.decodeData(Input);
+    return result;
+}
+
+//Get ethereum network type
 web3.eth.net.getNetworkType()
     .then(function (name) {
         networkName = name;
+    })
+    .catch(ex => {
+        console.log("Connection Problem!! Exiting...");
+        process.exit();
     });
 
-app.get('/eth/api/v1/transaction/:TXID', function (req, res) {
-    console.log(req.params.TXID);
+app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
+
+    console.log("TXid: " + req.params.TXID);
+
+    //Fetches basic txn information
     web3.eth.getTransaction(req.params.TXID)
         .then(function (info, err) {
             if (info) {
-                web3.eth.getTransactionReceipt(req.params.TXID, function (err, receipt) {
+                //Fetches txn receipt
+                web3.eth.getTransactionReceipt(req.params.TXID, (err, receipt) => {
                     if (!err) {
-                        web3.eth.getCode(info.to, function (err, code) {
+                        console.log(receipt);
+                        //Fetches the code for the to address
+                        web3.eth.getCode(info.to, (err, code) => {
+                            //Checks if the address is account or contract
                             if (code != "0x") {
-                                request('http://api.etherscan.io/api?module=contract&action=getabi&address=' + info.to, function (err, response, data) {
-                                    //console.log(data);
-                                    var contractABI = "";
-                                    contractABI = JSON.parse(data);
-                                    if (contractABI.result != '') {
-                                        const decoder = new InputDataDecoder(JSON.parse(contractABI.result));
-                                        const result = decoder.decodeData(info.input);
-                                        console.log(result);
-                                        if (result) {
-                                            if (result.name == "transfer" && result.inputs) {
-                                                console.log(result.inputs[1]);
-                                                var value = ("" + result.inputs[1]);
-                                                console.log(value);
+                                //Fetches the ABI for smart contract
+                                request('http://api.etherscan.io/api?module=contract&action=getabi&address=' + info.to, (err, response, data) => {
+                                    if (err) {
+                                        res.send("Could not get contract source code");
+                                        res.end();
+                                    } else {
+                                        var contractABI = "";
+                                        try {
+                                            contractABI = JSON.parse(data).result;
+                                            //Etherscan api only returns ABI for verified contracts
+                                            //We need the ABI to convert the input data of the txn.
+                                            if (contractABI != '' && contractABI != "Contract source code not verified") {
+                                                let result = decodeTxnInputData(contractABI, info.input);
+                                                if (result) {
+                                                    //ERC20 transfers
+                                                    if (result.name == "transfer" && result.inputs) {
+                                                        var value = ("" + result.inputs[1]);
 
+                                                        var txninfo = {
+                                                            "block": {
+                                                                "blockHeight": info.blockNumber,
+                                                            },
+
+                                                            "outs": [{
+                                                                "address": "0x" + result.inputs[0], //Receiver of the ERC20 token
+                                                                "value": value, //Quantity of ERC20 token
+                                                                "type": "token",
+                                                                "coinspecific": {
+                                                                    "tokenAddress": info.to
+                                                                }
+
+                                                            }],
+                                                            "ins": [{
+                                                                "address": info.from,
+                                                                "value": "-"+value,
+                                                                "type": "token",
+                                                                "coinspecific": {
+                                                                    "tokenAddress": info.to
+                                                                }
+                                                            }],
+                                                            "hash": req.params.TXID,
+                                                            "currency": "ETH",
+                                                            "chain": "ETH." + networkName,
+                                                            "state": receipt ? "Confirmed" : "Pending",
+                                                            "depositType": "contract"
+                                                        };
+
+                                                        res.send(txninfo);
+                                                        res.end();
+                                                    } else {
+                                                        //For smart contract invocation
+                                                        var txninfo = {
+                                                            "block": {
+                                                                "blockHeight": info.blockNumber,
+                                                            },
+        
+                                                            "outs": [{
+                                                                "address": info.to,
+                                                                "value": value,
+                                                                "type": "transfer",
+                                                                "coinspecific": {
+                                                                    "tracehash": req.params.TXID
+                                                                }
+        
+                                                            }],
+                                                            "ins": [{
+                                                                "address": info.to,
+                                                                "value": value ? "-"+value : undefined,
+                                                                "type": "transfer",
+                                                                "coinspecific": {
+                                                                    "tracehash": req.params.TXID
+                                                                }
+                                                            }],
+                                                            "hash": req.params.TXID,
+                                                            "currency": "ETH",
+                                                            "chain": "ETH." + networkName,
+                                                            "state": receipt ? "Confirmed" : "Pending",
+                                                            "depositType": "contract"
+                                                        };
+                                                        res.send(txninfo);
+                                                        res.end();
+                                                    }
+                                                }
+                                            } else {
                                                 var txninfo = {
                                                     "block": {
                                                         "blockHeight": info.blockNumber,
                                                     },
 
                                                     "outs": [{
-                                                        "address": "0x"+result.inputs[0],
+                                                        "address": info.to,
                                                         "value": value,
-                                                        "type": "token",
+                                                        "type": "transfer",
                                                         "coinspecific": {
-                                                            "tokenAddress": info.to
+                                                            "tracehash": req.params.TXID
                                                         }
 
                                                     }],
                                                     "ins": [{
-                                                        "address": info.from,
-                                                        "value": value * -1,
-                                                        "type": "token",
+                                                        "address": info.to,
+                                                        "value": value ? "-"+value : undefined,
+                                                        "type": "transfer",
                                                         "coinspecific": {
-                                                            "tokenAddress": info.to
+                                                            "tracehash": req.params.TXID
                                                         }
                                                     }],
                                                     "hash": req.params.TXID,
@@ -69,12 +158,15 @@ app.get('/eth/api/v1/transaction/:TXID', function (req, res) {
                                                 res.send(txninfo);
                                                 res.end();
                                             }
+                                        } catch (ex) {
+                                            res.send("Error occurred while get contract data");
+                                            res.end();
                                         }
-                                    } else {
-                                        console.log("Error");
                                     }
                                 });
                             } else {
+                                //Account to account ETH transfers
+
                                 var txninfo = {
                                     "block": {
                                         "blockHeight": info.blockNumber,
@@ -94,16 +186,19 @@ app.get('/eth/api/v1/transaction/:TXID', function (req, res) {
                                     "state": receipt ? "Confirmed" : "Pending",
                                     "depositType": "account"
                                 };
+
                                 res.send(txninfo);
                                 res.end();
                             }
                         });
-
-                        // console.log(info);
-                        // console.log(receipt);
-                        //console.log(info.da);
+                    } else {
+                        res.send("Error occoured while getting transaction receipt");
+                        res.end();
                     }
                 });
+            } else {
+                res.send("Error occoured while getting transaction information");
+                res.end();
             }
         });
 })
