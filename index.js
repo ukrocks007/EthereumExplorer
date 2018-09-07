@@ -27,6 +27,11 @@ web3.eth.net.getNetworkType()
         process.exit();
     });
 
+app.get('/', (req, res) => {
+    res.send("Welcome to the Ethereum Explorer by Utkarsh Mehta");
+    res.send();
+});
+
 app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
 
     console.log("TXid: " + req.params.TXID);
