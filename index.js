@@ -37,6 +37,7 @@ function sendAccountTransferTxnInfo(req, res, txnInfo, txnReceipt) {
         "state": txnReceipt ? "Confirmed" : "Pending",
         "depositType": "account"
     };
+    res.status(200);
     res.send(txninfo);
     res.end();
 }
@@ -70,7 +71,7 @@ function sendERC20TransferTxnInfo(req, res, txnInfo, txnReceipt, inputData, quan
         "state": txnReceipt ? "Confirmed" : "Pending",
         "depositType": "contract"
     };
-
+    res.status(200);
     res.send(txninfo);
     res.end();
 }
@@ -86,6 +87,7 @@ web3.eth.net.getNetworkType()
     });
 
 app.get('/', (req, res) => {
+    res.status(200);
     res.send("Welcome to the Ethereum Explorer by Utkarsh Mehta");
     res.send();
 });
@@ -109,6 +111,7 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                                 //Fetches the ABI for smart contract
                                 request('http://api.etherscan.io/api?module=contract&action=getabi&address=' + info.to, (err, response, data) => {
                                     if (err) {
+                                        res.status(404);
                                         res.send("Could not get contract source code");
                                         res.end();
                                     } else {
@@ -193,6 +196,7 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                                                 res.end();
                                             }
                                         } catch (ex) {
+                                            res.status(404);
                                             res.send("Error occurred while get contract data");
                                             res.end();
                                         }
@@ -208,16 +212,24 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                             }
                         });
                     } else {
+                        es.status(404);
                         res.send("Error occoured while getting transaction receipt");
                         res.end();
                     }
                 });
             } else {
+                es.status(404);
                 res.send("Error occoured while getting transaction information");
                 res.end();
             }
         });
 })
+
+app.all('*', (req, res)=>{
+    res.status(500);
+    res.send('Invalid endpoint');
+    res.end();
+});
 
 var server = app.listen(process.env.PORT || 8000, function () {
 
@@ -227,3 +239,4 @@ var server = app.listen(process.env.PORT || 8000, function () {
     console.log("Ethereum blockchain explorer listening at http://%s:%s", host, port)
 
 })
+module.exports = app;
