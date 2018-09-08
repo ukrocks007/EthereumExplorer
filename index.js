@@ -82,7 +82,7 @@ web3.eth.net.getNetworkType()
         networkName = name;
     })
     .catch(ex => {
-        console.log("Connection Problem!! Exiting...");
+        //console.log("Connection Problem!! Exiting...");
         process.exit();
     });
 
@@ -94,7 +94,7 @@ app.get('/', (req, res) => {
 
 app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
 
-    console.log("TXid: " + req.params.TXID);
+    //console.log("TXid: " + req.params.TXID);
 
     //Fetches basic txn information
     web3.eth.getTransaction(req.params.TXID)
@@ -103,7 +103,7 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                 //Fetches txn receipt
                 web3.eth.getTransactionReceipt(req.params.TXID, (err, receipt) => {
                     if (!err) {
-                        console.log(receipt);
+                        //console.log(receipt);
                         //Fetches the code for the to address
                         web3.eth.getCode(info.to, (err, code) => {
                             //Checks if the address is account or contract
@@ -206,26 +206,28 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                                 //Account to account ETH transfers
 
                                 sendAccountTransferTxnInfo(req, res, info, receipt);
-
-                                res.send(txninfo);
-                                res.end();
                             }
                         });
                     } else {
-                        es.status(404);
+                        res.status(404);
                         res.send("Error occoured while getting transaction receipt");
                         res.end();
                     }
                 });
             } else {
-                es.status(404);
+                res.status(404);
                 res.send("Error occoured while getting transaction information");
                 res.end();
             }
+        })
+        .catch((ex) => {
+            res.status(404);
+            res.send("Error occoured while getting transaction information");
+            res.end();
         });
 })
 
-app.all('*', (req, res)=>{
+app.all('*', (req, res) => {
     res.status(500);
     res.send('Invalid endpoint');
     res.end();
