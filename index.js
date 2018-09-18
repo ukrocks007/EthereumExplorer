@@ -17,6 +17,7 @@ function decodeTxnInputData(ABI, Input) {
     return result;
 }
 
+//Send Txn information for account transfer transaction
 function sendAccountTransferTxnInfo(req, res, txnInfo, txnReceipt) {
     var txninfo = {
         "block": {
@@ -41,6 +42,7 @@ function sendAccountTransferTxnInfo(req, res, txnInfo, txnReceipt) {
     res.end();
 }
 
+//Send Txn information for ERC20 transfer transaction
 function sendERC20TransferTxnInfo(req, res, txnInfo, txnReceipt, inputData, quantity) {
     var txninfo = {
         "block": {
@@ -71,6 +73,40 @@ function sendERC20TransferTxnInfo(req, res, txnInfo, txnReceipt, inputData, quan
         "depositType": "contract"
     };
 
+    res.send(txninfo);
+    res.end();
+}
+
+//Send Txn information for contract execution transaction
+function sendContractExecutionTxnInfo(req, res, txnInfo, txnReceipt, quantity){
+    var txninfo = {
+        "block": {
+            "blockHeight": txnInfo.blockNumber,
+        },
+
+        "outs": [{
+            "address": txnInfo.to,
+            "value": quantity,
+            "type": "transfer",
+            "coinspecific": {
+                "tracehash": req.params.TXID
+            }
+
+        }],
+        "ins": [{
+            "address": txnInfo.to,
+            "value": quantity ? "-" + quantity : undefined,
+            "type": "transfer",
+            "coinspecific": {
+                "tracehash": req.params.TXID
+            }
+        }],
+        "hash": req.params.TXID,
+        "currency": "ETH",
+        "chain": "ETH." + networkName,
+        "state": txnReceipt ? "Confirmed" : "Pending",
+        "depositType": "contract"
+    };
     res.send(txninfo);
     res.end();
 }
@@ -128,69 +164,11 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
 
                                                     } else {
                                                         //For smart contract invocation
-                                                        var txninfo = {
-                                                            "block": {
-                                                                "blockHeight": info.blockNumber,
-                                                            },
-
-                                                            "outs": [{
-                                                                "address": info.to,
-                                                                "value": value,
-                                                                "type": "transfer",
-                                                                "coinspecific": {
-                                                                    "tracehash": req.params.TXID
-                                                                }
-
-                                                            }],
-                                                            "ins": [{
-                                                                "address": info.to,
-                                                                "value": value ? "-" + value : undefined,
-                                                                "type": "transfer",
-                                                                "coinspecific": {
-                                                                    "tracehash": req.params.TXID
-                                                                }
-                                                            }],
-                                                            "hash": req.params.TXID,
-                                                            "currency": "ETH",
-                                                            "chain": "ETH." + networkName,
-                                                            "state": receipt ? "Confirmed" : "Pending",
-                                                            "depositType": "contract"
-                                                        };
-                                                        res.send(txninfo);
-                                                        res.end();
+                                                        sendContractExecutionTxnInfo(req, res, info, receipt, value);
                                                     }
                                                 }
                                             } else {
-                                                var txninfo = {
-                                                    "block": {
-                                                        "blockHeight": info.blockNumber,
-                                                    },
-
-                                                    "outs": [{
-                                                        "address": info.to,
-                                                        "value": value,
-                                                        "type": "transfer",
-                                                        "coinspecific": {
-                                                            "tracehash": req.params.TXID
-                                                        }
-
-                                                    }],
-                                                    "ins": [{
-                                                        "address": info.to,
-                                                        "value": value ? "-" + value : undefined,
-                                                        "type": "transfer",
-                                                        "coinspecific": {
-                                                            "tracehash": req.params.TXID
-                                                        }
-                                                    }],
-                                                    "hash": req.params.TXID,
-                                                    "currency": "ETH",
-                                                    "chain": "ETH." + networkName,
-                                                    "state": receipt ? "Confirmed" : "Pending",
-                                                    "depositType": "contract"
-                                                };
-                                                res.send(txninfo);
-                                                res.end();
+                                                sendContractExecutionTxnInfo(req, res, info, receipt, value);
                                             }
                                         } catch (ex) {
                                             res.send("Error occurred while get contract data");
