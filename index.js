@@ -43,6 +43,7 @@ function sendAccountTransferTxnInfo(req, res, txnInfo, txnReceipt) {
     res.end();
 }
 
+
 //Sends ERC20 token transfer transaction information
 function sendERC20TransferTxnInfo(req, res, txnInfo, txnReceipt, inputData, quantity) {
     var txninfo = {
