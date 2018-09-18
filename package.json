@@ -4,15 +4,19 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "mocha --timeout 5000",
     "start": "node index.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "chai": "^4.1.2",
+    "chai-http": "^4.2.0",
     "ethereum-input-data-decoder": "0.0.12",
     "express": "^4.16.3",
+    "mocha": "^5.2.0",
     "request": "^2.88.0",
-    "web3": "^1.0.0-beta.36"
+    "web3": "^1.0.0-beta.36",
+    "websocket": "^1.0.26"
   }
 }

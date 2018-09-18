@@ -17,7 +17,7 @@ function decodeTxnInputData(ABI, Input) {
     return result;
 }
 
-//Send Txn information for account transfer transaction
+//Sends account transfer transaction information
 function sendAccountTransferTxnInfo(req, res, txnInfo, txnReceipt) {
     var txninfo = {
         "block": {
@@ -38,11 +38,12 @@ function sendAccountTransferTxnInfo(req, res, txnInfo, txnReceipt) {
         "state": txnReceipt ? "Confirmed" : "Pending",
         "depositType": "account"
     };
+    res.status(200);
     res.send(txninfo);
     res.end();
 }
 
-//Send Txn information for ERC20 transfer transaction
+//Sends ERC20 token transfer transaction information
 function sendERC20TransferTxnInfo(req, res, txnInfo, txnReceipt, inputData, quantity) {
     var txninfo = {
         "block": {
@@ -72,7 +73,7 @@ function sendERC20TransferTxnInfo(req, res, txnInfo, txnReceipt, inputData, quan
         "state": txnReceipt ? "Confirmed" : "Pending",
         "depositType": "contract"
     };
-
+    res.status(200);
     res.send(txninfo);
     res.end();
 }
@@ -117,18 +118,21 @@ web3.eth.net.getNetworkType()
         networkName = name;
     })
     .catch(ex => {
-        console.log("Connection Problem!! Exiting...");
+        //console.log("Connection Problem!! Exiting...");
         process.exit();
     });
 
+//Routes
+
 app.get('/', (req, res) => {
+    res.status(200);
     res.send("Welcome to the Ethereum Explorer by Utkarsh Mehta");
     res.send();
 });
 
 app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
 
-    console.log("TXid: " + req.params.TXID);
+    //console.log("TXid: " + req.params.TXID);
 
     //Fetches basic txn information
     web3.eth.getTransaction(req.params.TXID)
@@ -137,7 +141,7 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                 //Fetches txn receipt
                 web3.eth.getTransactionReceipt(req.params.TXID, (err, receipt) => {
                     if (!err) {
-                        console.log(receipt);
+                        //console.log(receipt);
                         //Fetches the code for the to address
                         web3.eth.getCode(info.to, (err, code) => {
                             //Checks if the address is account or contract
@@ -145,6 +149,7 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                                 //Fetches the ABI for smart contract
                                 request('http://api.etherscan.io/api?module=contract&action=getabi&address=' + info.to, (err, response, data) => {
                                     if (err) {
+                                        res.status(404);
                                         res.send("Could not get contract source code");
                                         res.end();
                                     } else {
@@ -171,6 +176,7 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                                                 sendContractExecutionTxnInfo(req, res, info, receipt, value);
                                             }
                                         } catch (ex) {
+                                            res.status(404);
                                             res.send("Error occurred while get contract data");
                                             res.end();
                                         }
@@ -180,22 +186,32 @@ app.get('/eth/api/v1/transaction/:TXID', (req, res) => {
                                 //Account to account ETH transfers
 
                                 sendAccountTransferTxnInfo(req, res, info, receipt);
-
-                                res.send(txninfo);
-                                res.end();
                             }
                         });
                     } else {
+                        res.status(404);
                         res.send("Error occoured while getting transaction receipt");
                         res.end();
                     }
                 });
             } else {
+                res.status(404);
                 res.send("Error occoured while getting transaction information");
                 res.end();
             }
+        })
+        .catch((ex) => {
+            res.status(404);
+            res.send("Error occoured while getting transaction information");
+            res.end();
         });
 })
+
+app.all('*', (req, res) => {
+    res.status(500);
+    res.send('Invalid endpoint');
+    res.end();
+});
 
 var server = app.listen(process.env.PORT || 8000, function () {
 
@@ -205,3 +221,4 @@ var server = app.listen(process.env.PORT || 8000, function () {
     console.log("Ethereum blockchain explorer listening at http://%s:%s", host, port)
 
 })
+module.exports = app;
